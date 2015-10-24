@@ -1,38 +1,40 @@
+var gju = require('geojson-utils');
 var hat = require('hat').rack();
 var schedule = require('node-schedule');
-
-var app = require('express')();
+var express = require('express');
+var app = express();
+app.use(express.static('static'));
+app.use(express.static('bower_components'));
+var path = require('path');
 var server = require('http').Server(app);
 var io = require('socket.io')(server);
-server.listen(5004);
+server.listen(80);
 
-var MongoClient = require('mongodb').MongoClient;
-var assert = require('assert');
-
-var db;
-
-MongoClient.connect('mongodb://localhost:27017/rikka', function(err, mon) {
-  assert.equal(null, err);
-  db = mon;
-  db.collection('users').createIndex({"location": "2dsphere"});
-  console.log("Database connection established.");
-});
-
+var players = {};
+var mobs = {};
 
 io.on('connection', function(socket) {
-  db.collection('users').insertOne({"id": socket.id, "nickname": "Hero", "location": {"type": "Point", "coordinates": [51.2493, 22.5367]}, "health": 1});
   socket.on('registration', function (data) {
-    db.collection('users').updateOne({"id": socket.id},{$set: {"nickname": data.nickname}}, function (err, results) { console.log("Registration complete"); });
+    console.log("Registering "+socket.id+" as "+data.nickname);
+    players[socket.id] = {loci:{type:"Point",coordinates:[0,0]}, nickname: data.nickname};
+    socket.emit("myname", socket.id);
+  });
+  socket.on('disconnection', function() {
+    io.emit('logout', {user: socket.id});
+    delete players[socket.id].nickname;
   });
   socket.on('locupdate', function (data) {
-    db.collection('users').updateOne({"id": socket.id},{$set: {"location.coordinates":[data.latitude, data.longitude]}}, function (err, results) { console.log("Registration complete"); });
+    console.log("Receiving data from "+players[socket.id].nickname);
+    players[socket.id].loci.coordinates = [data.latitude, data.longitude];
+    io.emit('userlocupdate', {user: socket.id, latitude: data.latitude, longitude: data.longitude, nickname: players[socket.id].nickname});
   });
   socket.on('hit', function (data) {
+    console.log("Hit!"+JSON.stringify(data));
+    io.emit('hitdraw', {user: socket.id});
   });
-  socket.getDbObject = function () {
-    return db.collection('users').find({"id": socket.id}).toArray()[0];
-  };
   socket.findMobsNearby = function () {
-    return db.runCommand({geoNear: monsters, near: socket.getDbObject().location});
+    var ret = {};
+    for (var i in mobs) if (gju.geometryWithinRadius(mobs[i], players[socket.id].loci, 50)) ret[i] = mobs[i];
+    return ret;
   };
 });

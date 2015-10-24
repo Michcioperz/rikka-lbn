@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rikka</title>
+    <script src='https://api.mapbox.com/mapbox.js/v2.2.2/mapbox.js'></script>
+    <link href='https://api.mapbox.com/mapbox.js/v2.2.2/mapbox.css' rel='stylesheet' />
+    <style>
+      body { padding: 0; margin: 0; }
+      html, body, #map { height: 100%; }
+      .pikaaa { animation-duration: 3s; animation-name: fadeout; }
+      @keyframes fadeout { from { opacity: 100%; } to { opacity: 0%; }}
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <script type="text/javascript" src="/socket.io/socket.io.js"></script>
+    <script type="text/javascript" src="/shake.js/shake.js"></script>
+    <script type="text/javascript">
+      var nickname = prompt("Nickname:");
+      if (!("geolocation" in navigator)) { alert("Włącz geolokalizację"); throw new Error("no geolocation"); }
+      L.mapbox.accessToken = 'pk.eyJ1IjoibWljaGNpb3BlcnoiLCJhIjoiY2lnNTVqZWtlMGF2bXYwbTY1YzFhcTA3cCJ9.yKjm9JgMdEXcOpQ03sQyuA';
+      var map = L.mapbox.map('map', 'michcioperz.npnakcj7');
+      var socket = io();
+      var myname;
+      socket.on("myname", function(data) { myname = data });
+      socket.emit("registration",{nickname:nickname});
+      var usermarkers = {};
+      navigator.geolocation.watchPosition(function(position) {
+        socket.emit("locupdate", {latitude:position.coords.latitude, longitude:position.coords.longitude});
+        map.panTo([position.coords.latitude, position.coords.longitude], 14);
+      }, null, {enableHighAccuracy: true});
+      new Shake({timeout: 50, threshold: 8}).start();
+      window.addEventListener('shake', function(e) {
+        socket.emit("hit", e);
+      }, false);
+      socket.on("hitdraw", function (data) {
+        console.log("it actually works");
+        usermarkers[data.user].bindPopup("SLASH!");
+        usermarkers[data.user].openPopup();
+        setTimeout(function() { usermarkers[data.user].closePopup(); }, 500);
+      });
+      socket.on("logout", function (data) {
+        if (data.user in usermarkers) {
+          map.removeLayer(usermarkers[data.user]);
+          delete usermarkers[data.user];
+        }
+      });
+      socket.on("userlocupdate", function (data) {
+        if (data.user in usermarkers) {
+          usermarkers[data.user].setLatLng(L.latLng(data.latitude, data.longitude));
+        } else {
+          usermarkers[data.user] = L.marker([data.latitude, data.longitude], {icon: L.mapbox.marker.icon({'marker-color': (myname == data.user ? '#67f867' : '#f86767')}), title: data.nickname});
+          usermarkers[data.user].addTo(map);
+        }
+      });
+    </script>
+  </body>
+</html>
+
