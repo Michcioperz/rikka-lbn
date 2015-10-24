@@ -8,7 +8,7 @@ app.use(express.static('bower_components'));
 var path = require('path');
 var server = require('http').Server(app);
 var io = require('socket.io')(server);
-server.listen(80);
+server.listen(5004);
 
 var players = {};
 var mobs = {};
