@@ -14,6 +14,11 @@ var mobs = {};
 
 function randomCoin() { return Math.random() >= 0.5; }
 
+function shuffle(o){
+    for(var j, x, i = o.length; i; j = Math.floor(Math.random() * i), x = o[--i], o[i] = o[j], o[j] = x);
+    return o;
+}
+
 function createMob() {
   var mob = {};
   mob.id = hat();
@@ -22,8 +27,8 @@ function createMob() {
   mob.update = function () {
     if (!(mob.focus && mob.focus in players)) {
       if (mob.focus) delete mob.focus;
-      for (var i in players) {
-        if (gju.geometryWithinRadius(players[i].loci, mob.loci, 1500)) mob.focus = i;
+      for (var i in shuffle(Object.keys(players))) {
+        if (i in players && players[i].loci && gju.geometryWithinRadius(players[i].loci, mob.loci, 750)) mob.focus = i;
         break;
       }
     }
@@ -58,10 +63,14 @@ setInterval(function() {
 },150);
 
 io.on('connection', function(socket) {
-  socket.online = false;
+  socket.on('disconnect', function() {
+    console.log("quit");
+    io.emit('logout', {user: socket.id});
+    if (socket.id in players) delete players[socket.id];
+  });
   socket.on('registration', function (data) {
     console.log("Registering "+socket.id+" as "+data.nickname);
-    players[socket.id] = {loci:{type:"Point",coordinates:[0,0]}, nickname: data.nickname};
+    players[socket.id] = {health:100, loci:{type:"Point",coordinates:[0,0]}, nickname: data.nickname};
     socket.emit("myname", socket.id);
     socket.on('locupdate', function (data) {
       console.log("Receiving data from "+players[socket.id].nickname);
@@ -81,9 +90,5 @@ io.on('connection', function(socket) {
       var ret = {};
       return ret;
     };
-  });
-  socket.on('disconnection', function() {
-    io.emit('logout', {user: socket.id});
-    if (socket.id in players) delete players[socket.id];
   });
 });

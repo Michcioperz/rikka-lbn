@@ -11,6 +11,11 @@
     <style>
       body { padding: 0; margin: 0; }
       html, body, #map { height: 100%; }
+      .info {
+        background-color: white;
+        opacity: 0.8;
+        border-radius: 2px;
+      }
     </style>
   </head>
   <body>
@@ -33,6 +38,13 @@
       var mobicon = L.icon({iconUrl: 'flyFly1.png', iconSize: [36,18]});
       var playericon = L.icon({iconUrl: 'p3_stand.png', iconSize: [33,46]});
       var nickname = prompt("Nickname:");
+      var hpbox = L.control();
+      hpbox.onAdd = function (map) {
+        var div = L.DomUtil.create('div','info'), points = 0, hp = 100;
+        div.innerHTML = '<h4>'+$("<div />").text(nickname).html()+'</h4><h5>HP: <span class="healthpotter">100</span></h5>';
+        return div;
+      };
+      hpbox.addTo(map);
       if (!("geolocation" in navigator)) { alert("Włącz geolokalizację"); throw new Error("no geolocation"); }
       var socket = io();
       socket.on("disconnect", function() { alert("Utracono połączenie. Odśwież stronę."); throw new Error("disconnected"); });
