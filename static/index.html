@@ -36,12 +36,13 @@
       var mobmarkergroup = new L.layerGroup({animateAddingMarkers:true});
       map.addLayer(mobmarkergroup);
       var mobicon = L.icon({iconUrl: 'flyFly1.png', iconSize: [36,18]});
+      var dragicon = L.icon({iconUrl: 'DragonAttack.png', iconSize: [66,90]});
       var playericon = L.icon({iconUrl: 'p3_stand.png', iconSize: [33,46]});
       var nickname = prompt("Nickname:");
       var hpbox = L.control();
       hpbox.onAdd = function (map) {
         var div = L.DomUtil.create('div','info'), points = 0, hp = 100;
-        div.innerHTML = '<h4>'+$("<div />").text(nickname).html()+'</h4><h5>HP: <span class="healthpotter">100</span></h5>';
+        div.innerHTML = '<h4>'+$("<div />").text(nickname).html()+'</h4><h5>EXP: <span class="healthypotter">0</span></h5>';
         return div;
       };
       hpbox.addTo(map);
@@ -70,6 +71,7 @@
           usermarkers[data.user].openPopup();
           usermarkers[data.user].popuptimeout = setTimeout(function() { usermarkers[data.user].closePopup(); usermarkers[data.user].bindPopup(usermarkers[data.user].options.title); }, 500);
         }
+        if (data.user == myname) { $(".healthypotter").text(data.kills); }
       });
       socket.on("logout", function (data) {
         if (data.user in usermarkers) {
@@ -89,7 +91,7 @@
         if (data.id in mobmarkers) {
           mobmarkers[data.id].setLatLng([data.latitude, data.longitude]);
         } else {
-          mobmarkers[data.id] = L.marker([data.latitude, data.longitude], {icon:mobicon});
+          mobmarkers[data.id] = L.marker([data.latitude, data.longitude], {icon:(data.type == "dragon" ? dragicon : mobicon)});
           mobmarkers[data.id].addTo(mobmarkergroup);
         }
       });

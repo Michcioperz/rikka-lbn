@@ -22,6 +22,8 @@ function shuffle(o){
 function createMob() {
   var mob = {};
   mob.id = hat();
+  mob.type = (Math.random() >= 0.9 ? "dragon" : "fly");
+  if (mob.type == "dragon") console.log("behold!");
   mob.loci = {type:"Point",coordinates:[51.2+0.1*Math.random(),22.4+0.3*Math.random()]};
   mob.speed = function() { return 0.0003+0.0003*Math.random(); }
   mob.update = function () {
@@ -42,8 +44,9 @@ function createMob() {
     }
     for (var i in players) {
       var dist = gju.pointDistance(mob.loci, players[i].loci);
-      if (dist < 2500) {
-        io.sockets.in(i).emit("mobupdate", {id: mob.id, latitude: mob.loci.coordinates[0], longitude: mob.loci.coordinates[1]});
+      if (dist < 1200) {
+        io.sockets.emit("mobupdate", {id: mob.id, type: mob.type, latitude: mob.loci.coordinates[0], longitude: mob.loci.coordinates[1]});
+        break;
       }
     }
     mob.updint = setTimeout(mob.update, 250+Math.random()*500)
@@ -70,7 +73,7 @@ io.on('connection', function(socket) {
   });
   socket.on('registration', function (data) {
     console.log("Registering "+socket.id+" as "+data.nickname);
-    players[socket.id] = {health:100, loci:{type:"Point",coordinates:[0,0]}, nickname: data.nickname};
+    players[socket.id] = {kills:0, loci:{type:"Point",coordinates:[0,0]}, nickname: data.nickname};
     socket.emit("myname", socket.id);
     socket.on('locupdate', function (data) {
       console.log("Receiving data from "+players[socket.id].nickname);
@@ -82,9 +85,10 @@ io.on('connection', function(socket) {
       for (var i in mobs) {
         if (gju.geometryWithinRadius(mobs[i].loci, players[socket.id].loci, 100)) {
           mobs[i].kill();
+          players[socket.id].kills += 1;
         }
       }
-      io.emit('hitdraw', {user: socket.id});
+      io.emit('hitdraw', {user: socket.id, kills: players[socket.id].kills});
     });
     socket.findMobsNearby = function () {
       var ret = {};
