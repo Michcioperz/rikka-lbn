@@ -6,11 +6,11 @@
     <title>Rikka</title>
     <script src='https://api.mapbox.com/mapbox.js/v2.2.2/mapbox.js'></script>
     <link href='https://api.mapbox.com/mapbox.js/v2.2.2/mapbox.css' rel='stylesheet' />
+    <script type="text/javascript" src="//code.jquery.com/jquery-1.11.3.min.js"></script>
+    <script src="//code.createjs.com/soundjs-0.6.1.min.js"></script>
     <style>
       body { padding: 0; margin: 0; }
       html, body, #map { height: 100%; }
-      .pikaaa { animation-duration: 3s; animation-name: fadeout; }
-      @keyframes fadeout { from { opacity: 100%; } to { opacity: 0%; }}
     </style>
   </head>
   <body>
@@ -18,32 +18,50 @@
     <script type="text/javascript" src="/socket.io/socket.io.js"></script>
     <script type="text/javascript" src="/shake.js/shake.js"></script>
     <script type="text/javascript">
-      var nickname = prompt("Nickname:");
-      if (!("geolocation" in navigator)) { alert("Włącz geolokalizację"); throw new Error("no geolocation"); }
+      function randomItem(arrrr) {
+        return arrrr[Math.floor(Math.random()*arrrr.length)];
+      }
+      createjs.Sound.registerSound("swing.wav", "swing1");
+      createjs.Sound.registerSound("swing2.wav", "swing2");
+      createjs.Sound.registerSound("swing3.wav", "swing3");
+      createjs.Sound.registerSound("stone.wav", "stone");
       L.mapbox.accessToken = 'pk.eyJ1IjoibWljaGNpb3BlcnoiLCJhIjoiY2lnNTVqZWtlMGF2bXYwbTY1YzFhcTA3cCJ9.yKjm9JgMdEXcOpQ03sQyuA';
       var map = L.mapbox.map('map', 'michcioperz.npnakcj7');
+      var mobmarkers = {};
+      var mobmarkergroup = new L.layerGroup({animateAddingMarkers:true});
+      map.addLayer(mobmarkergroup);
+      var mobicon = L.icon({iconUrl: 'flyFly1.png', iconSize: [36,18]});
+      var playericon = L.icon({iconUrl: 'p3_stand.png', iconSize: [33,46]});
+      var nickname = prompt("Nickname:");
+      if (!("geolocation" in navigator)) { alert("Włącz geolokalizację"); throw new Error("no geolocation"); }
       var socket = io();
+      socket.on("disconnect", function() { alert("Utracono połączenie. Odśwież stronę."); throw new Error("disconnected"); });
       var myname;
       socket.on("myname", function(data) { myname = data });
       socket.emit("registration",{nickname:nickname});
       var usermarkers = {};
+      var usermarkergroup = new L.layerGroup({animateAddingMarkers:true});
+      map.addLayer(usermarkergroup);
       navigator.geolocation.watchPosition(function(position) {
         socket.emit("locupdate", {latitude:position.coords.latitude, longitude:position.coords.longitude});
         map.panTo([position.coords.latitude, position.coords.longitude], 14);
       }, null, {enableHighAccuracy: true});
-      new Shake({timeout: 50, threshold: 8}).start();
+      new Shake({timeout: 150, threshold: 8}).start();
       window.addEventListener('shake', function(e) {
         socket.emit("hit", e);
       }, false);
       socket.on("hitdraw", function (data) {
-        console.log("it actually works");
-        usermarkers[data.user].bindPopup("SLASH!");
-        usermarkers[data.user].openPopup();
-        setTimeout(function() { usermarkers[data.user].closePopup(); }, 500);
+        createjs.Sound.play(randomItem(['swing1','swing2','swing3']));
+        if (data.user in usermarkers) {
+          if (usermarkers[data.user].popuptimeout) clearTimeout(usermarkers[data.user].popuptimeout);
+          usermarkers[data.user].bindPopup("SLASH!");
+          usermarkers[data.user].openPopup();
+          usermarkers[data.user].popuptimeout = setTimeout(function() { usermarkers[data.user].closePopup(); usermarkers[data.user].bindPopup(usermarkers[data.user].options.title); }, 500);
+        }
       });
       socket.on("logout", function (data) {
         if (data.user in usermarkers) {
-          map.removeLayer(usermarkers[data.user]);
+          usermarkergroup.removeLayer(usermarkers[data.user]);
           delete usermarkers[data.user];
         }
       });
@@ -51,8 +69,23 @@
         if (data.user in usermarkers) {
           usermarkers[data.user].setLatLng(L.latLng(data.latitude, data.longitude));
         } else {
-          usermarkers[data.user] = L.marker([data.latitude, data.longitude], {icon: L.mapbox.marker.icon({'marker-color': (myname == data.user ? '#67f867' : '#f86767')}), title: data.nickname});
-          usermarkers[data.user].addTo(map);
+          usermarkers[data.user] = L.marker([data.latitude, data.longitude], {icon: (data.user == myname ? L.icon({iconUrl: 'p1_stand.png', iconSize:[33,46]}) : playericon), title: data.nickname}).bindPopup(data.nickname);
+          usermarkers[data.user].addTo((data.user == myname ? map : usermarkergroup));
+        }
+      });
+      socket.on("mobupdate", function (data) {
+        if (data.id in mobmarkers) {
+          mobmarkers[data.id].setLatLng([data.latitude, data.longitude]);
+        } else {
+          mobmarkers[data.id] = L.marker([data.latitude, data.longitude], {icon:mobicon});
+          mobmarkers[data.id].addTo(mobmarkergroup);
+        }
+      });
+      socket.on("mobkilled", function (data) {
+        setTimeout(function() { createjs.Sound.play('stone'); }, 100);
+        if (data.id in mobmarkers) {
+          mobmarkergroup.removeLayer(mobmarkers[data.id]);
+          delete mobmarkers[data.id];
         }
       });
     </script>
